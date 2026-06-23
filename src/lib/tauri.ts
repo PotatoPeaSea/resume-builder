@@ -50,8 +50,10 @@ export interface ScoredBullet {
 
 export interface LLMSettings {
   mode: string;
-  model_path?: string;
+  ollama_model?: string;
+  ollama_url?: string;
   api_key?: string;
+  cloud_model?: string;
 }
 
 export interface GenerationResult {
@@ -132,8 +134,13 @@ export const searchSimilar = (job_description: string, archetype_id: number, top
 export const generateCoverLetter = (jd: string, archetype_id: number, top_k: number) =>
   invoke<GenerationResult>('generate_cover_letter', { jobDescription: jd, archetypeId: archetype_id, topK: top_k });
 export const getLlmSettings = () => invoke<LLMSettings>('get_llm_settings');
-export const updateLlmSettings = (mode: string, path?: string, key?: string) =>
-  invoke('update_llm_settings', { mode, ggufPath: path, apiKey: key });
+export const updateLlmSettings = (
+  mode: string,
+  ollamaModel?: string,
+  apiKey?: string,
+  ollamaUrl?: string,
+  cloudModel?: string,
+) => invoke('update_llm_settings', { mode, ollamaModel, apiKey, ollamaUrl, cloudModel });
 export const extractResumePdf = (pdf_path: string) =>
   invoke<string>('extract_resume_pdf', { pdfPath: pdf_path });
 

@@ -94,11 +94,17 @@ pub async fn generate_cover_letter(
 
     let cover_letter = match settings.mode.as_str() {
         "local" => {
-            let path = settings
-                .gguf_path
+            let model = settings
+                .ollama_model
                 .as_deref()
-                .ok_or("No GGUF model path configured. Please set one in Settings.")?;
-            crate::llm::generate_local(&prompt, path)?
+                .unwrap_or("qwen3.5:9b");
+            let url = settings
+                .ollama_url
+                .as_deref()
+                .unwrap_or("http://localhost:11434");
+            crate::llm::generate_ollama(&prompt, model, url)
+                .await
+                .map_err(|e| format!("Ollama generation failed: {}", e))?
         }
         "cloud" | _ => {
             let key = settings
@@ -144,13 +150,15 @@ pub fn update_llm_settings(
     db_state: State<'_, DbState>,
     llm_state: State<'_, LlmState>,
     mode: String,
-    gguf_path: Option<String>,
+    ollama_model: Option<String>,
+    ollama_url: Option<String>,
     api_key: Option<String>,
     cloud_model: Option<String>,
 ) -> Result<(), String> {
     let new_settings = LlmSettings {
         mode,
-        gguf_path,
+        ollama_model,
+        ollama_url,
         api_key,
         cloud_model,
     };

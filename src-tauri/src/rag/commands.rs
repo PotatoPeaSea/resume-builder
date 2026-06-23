@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::db::DbState;
-use crate::rag::EmbeddingState;
+use crate::rag::{EmbeddingModel, EmbeddingState};
 
 /// A bullet point with its similarity score, returned by `search_similar`.
 #[derive(Debug, Serialize)]
@@ -100,24 +100,20 @@ pub fn embed_all_bullets(
     Ok(count)
 }
 
-/// Semantic search: embed the query text and find the most similar bullet points.
-/// Optionally filter by archetype.
-#[tauri::command]
-pub fn search_similar(
-    db_state: State<'_, DbState>,
-    emb_state: State<'_, EmbeddingState>,
-    query: String,
+/// Semantic search core: embed the query text and find the most similar bullet
+/// points using a plain `Connection` and `EmbeddingModel`. Shared by the Tauri
+/// `search_similar` command and out-of-band callers (e.g. the `eval_rag` binary),
+/// so retrieval behavior is identical everywhere.
+pub fn search_similar_conn(
+    conn: &rusqlite::Connection,
+    model: &mut EmbeddingModel,
+    query: &str,
     archetype_id: Option<i64>,
-    top_k: Option<i32>,
+    k: i32,
 ) -> Result<Vec<ScoredBullet>, String> {
-    let conn = db_state.0.lock().map_err(|e| e.to_string())?;
-    let mut model = emb_state.0.lock().map_err(|e| e.to_string())?;
-
-    let k = top_k.unwrap_or(10);
-
     // Embed the query
     let query_embedding = model
-        .embed(&query)
+        .embed(query)
         .map_err(|e| format!("Query embedding failed: {}", e))?;
 
     let query_bytes = vec_to_bytes(&query_embedding);
@@ -180,4 +176,22 @@ pub fn search_similar(
     };
 
     Ok(results)
+}
+
+/// Semantic search: embed the query text and find the most similar bullet points.
+/// Optionally filter by archetype. Thin Tauri wrapper around `search_similar_conn`.
+#[tauri::command]
+pub fn search_similar(
+    db_state: State<'_, DbState>,
+    emb_state: State<'_, EmbeddingState>,
+    query: String,
+    archetype_id: Option<i64>,
+    top_k: Option<i32>,
+) -> Result<Vec<ScoredBullet>, String> {
+    let conn = db_state.0.lock().map_err(|e| e.to_string())?;
+    let mut model = emb_state.0.lock().map_err(|e| e.to_string())?;
+
+    let k = top_k.unwrap_or(10);
+
+    search_similar_conn(&conn, &mut model, &query, archetype_id, k)
 }

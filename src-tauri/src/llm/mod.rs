@@ -7,21 +7,24 @@ use std::sync::Mutex;
 /// LLM settings persisted in the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmSettings {
-    /// "local" or "cloud"
+    /// "local" (Ollama) or "cloud" (Gemini)
     pub mode: String,
-    /// Path to a GGUF model file (for local mode)
-    pub gguf_path: Option<String>,
+    /// Ollama model tag for local mode (e.g. "qwen3.5:9b")
+    pub ollama_model: Option<String>,
+    /// Ollama server base URL (default: "http://localhost:11434")
+    pub ollama_url: Option<String>,
     /// API key for cloud provider (Gemini)
     pub api_key: Option<String>,
-    /// Cloud model name (default: "gemini-2.0-flash")
+    /// Cloud model name (default: "gemini-2.5-flash")
     pub cloud_model: Option<String>,
 }
 
 impl Default for LlmSettings {
     fn default() -> Self {
         Self {
-            mode: "cloud".to_string(),
-            gguf_path: None,
+            mode: "local".to_string(),
+            ollama_model: Some("qwen3.5:9b".to_string()),
+            ollama_url: Some("http://localhost:11434".to_string()),
             api_key: None,
             cloud_model: Some("gemini-2.5-flash".to_string()),
         }
@@ -85,92 +88,74 @@ pub async fn generate_cloud(
     Ok(text.to_string())
 }
 
-/// Generate text using a local GGUF model via llama-cpp-2.
-/// This is only available when compiled with the `local-llm` feature.
-#[cfg(feature = "local-llm")]
-pub fn generate_local(prompt: &str, gguf_path: &str) -> Result<String, String> {
-    use llama_cpp_2::llama_backend::LlamaBackend;
-    use llama_cpp_2::model::LlamaModel;
-    use llama_cpp_2::model::params::LlamaModelParams;
-    use llama_cpp_2::model::AddBos;
-    use llama_cpp_2::context::params::LlamaContextParams;
-    use llama_cpp_2::llama_batch::LlamaBatch;
-    use llama_cpp_2::sampling::LlamaSampler;
-    use std::num::NonZeroU32;
-    use std::pin::pin;
-
-    // Initialize the backend
-    let backend = LlamaBackend::init()
-        .map_err(|e| format!("Failed to init llama backend: {}", e))?;
-
-    // Load the model
-    let model_params = pin!(LlamaModelParams::default());
-    let model = LlamaModel::load_from_file(&backend, gguf_path, &model_params)
-        .map_err(|e| format!("Failed to load GGUF model: {}", e))?;
-
-    // Create context
-    let ctx_params = LlamaContextParams::default()
-        .with_n_ctx(Some(NonZeroU32::new(2048).unwrap()));
-    let mut ctx = model.new_context(&backend, ctx_params)
-        .map_err(|e| format!("Failed to create context: {}", e))?;
-
-    // Tokenize the prompt
-    let tokens = model.str_to_token(prompt, AddBos::Always)
-        .map_err(|e| format!("Tokenization failed: {}", e))?;
-
-    // Create batch and evaluate prompt tokens
-    let mut batch = LlamaBatch::new(2048, 1);
-    let last_index = (tokens.len() - 1) as i32;
-    for (i, token) in (0i32..).zip(tokens.iter().copied()) {
-        let is_last = i == last_index;
-        batch.add(token, i, &[0], is_last)
-            .map_err(|e| format!("Failed to add token to batch: {}", e))?;
-    }
-
-    ctx.decode(&mut batch)
-        .map_err(|e| format!("Initial decode failed: {}", e))?;
-
-    // Set up sampler (greedy decoding)
-    let mut sampler = LlamaSampler::chain_simple([
-        LlamaSampler::dist(1234),
-        LlamaSampler::greedy(),
-    ]);
-
-    // Generate tokens
-    let mut output = String::new();
-    let mut n_cur = batch.n_tokens();
-    let max_tokens = 1024i32;
-    let mut decoder = encoding_rs::UTF_8.new_decoder();
-
-    for _ in 0..max_tokens {
-        let token = sampler.sample(&ctx, batch.n_tokens() - 1);
-        sampler.accept(token);
-
-        if model.is_eog_token(token) {
-            break;
-        }
-
-        let piece = model.token_to_piece(token, &mut decoder, true, None)
-            .map_err(|e| format!("Token to piece failed: {}", e))?;
-        output.push_str(&piece);
-
-        batch.clear();
-        batch.add(token, n_cur, &[0], true)
-            .map_err(|e| format!("Failed to add generated token: {}", e))?;
-
-        ctx.decode(&mut batch)
-            .map_err(|e| format!("Decode step failed: {}", e))?;
-
-        n_cur += 1;
-    }
-
-    Ok(output)
+/// Generate text using a local Ollama server (e.g. the `qwen3.5:9b` model).
+///
+/// Requires `ollama serve` to be running (the Ollama desktop app starts it
+/// automatically) and the given model to be pulled (`ollama pull <model>`).
+pub async fn generate_ollama(
+    prompt: &str,
+    model: &str,
+    base_url: &str,
+) -> Result<String, String> {
+    generate_ollama_opts(prompt, model, base_url, 0.7, 8192).await
 }
 
-/// Stub for when local-llm feature is not enabled.
-#[cfg(not(feature = "local-llm"))]
-pub fn generate_local(_prompt: &str, _gguf_path: &str) -> Result<String, String> {
-    Err("Local LLM support is not enabled. Recompile with `--features local-llm` (requires cmake).".to_string())
+/// Like `generate_ollama`, but with explicit sampling `temperature` and
+/// `num_predict` (max output tokens). Use a low temperature (e.g. 0.0) for
+/// deterministic, judge-style tasks where a single short answer is expected.
+pub async fn generate_ollama_opts(
+    prompt: &str,
+    model: &str,
+    base_url: &str,
+    temperature: f32,
+    num_predict: i32,
+) -> Result<String, String> {
+    let url = format!("{}/api/generate", base_url.trim_end_matches('/'));
+
+    let body = serde_json::json!({
+        "model": model,
+        "prompt": prompt,
+        "stream": false,
+        // Disable chain-of-thought for reasoning models (e.g. qwen3.5) so the
+        // answer lands in `response` rather than the separate `thinking` field.
+        // Harmless for non-reasoning models.
+        "think": false,
+        "options": {
+            "temperature": temperature,
+            "num_predict": num_predict,
+        }
+    });
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            format!(
+                "Could not reach Ollama at {}. Is the Ollama server running? ({})",
+                url, e
+            )
+        })?;
+
+    let status = response.status();
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read Ollama response: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!("Ollama API error ({}): {}", status, response_text));
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse Ollama JSON: {}", e))?;
+
+    json["response"]
+        .as_str()
+        .map(|s| s.trim().to_string())
+        .ok_or_else(|| format!("Unexpected Ollama response structure: {}", response_text))
 }
 
 /// Load LLM settings from the database, or return defaults.

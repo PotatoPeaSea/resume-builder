@@ -1,0 +1,80 @@
+{
+  "_comment": "RAG retrieval eval dataset. `corpus` is the pool of resume bullet points seeded into a throwaway DB and embedded. `queries` are job descriptions retrieval is run against. `relevant_keys` is OPTIONAL ground truth (corpus keys that SHOULD be retrieved) — when present the harness also computes deterministic Recall@k without any LLM calls. Grow this over time; keys must be unique.",
+  "corpus": [
+    { "key": "be-rest-api", "experience": "Backend Engineer @ Acme", "content": "Built a REST API in Rust (Axum) serving 10k requests/second with p99 latency under 50ms" },
+    { "key": "be-grpc", "experience": "Backend Engineer @ Acme", "content": "Designed gRPC microservices and a service mesh handling inter-service auth and retries" },
+    { "key": "be-postgres", "experience": "Backend Engineer @ Acme", "content": "Optimized PostgreSQL queries and added composite indexes, cutting report generation time by 70%" },
+    { "key": "be-caching", "experience": "Backend Engineer @ Acme", "content": "Introduced Redis caching layer reducing database load by 60% during peak traffic" },
+    { "key": "be-auth", "experience": "Backend Engineer @ Acme", "content": "Implemented OAuth2 and JWT-based authentication with role-based access control" },
+    { "key": "be-queue", "experience": "Platform Engineer @ Globex", "content": "Built an event-driven pipeline on Kafka processing 5M events/day with exactly-once semantics" },
+
+    { "key": "ml-bert", "experience": "ML Engineer @ DeepLabs", "content": "Fine-tuned a BERT model for document classification, improving F1 from 0.81 to 0.93" },
+    { "key": "ml-pipeline", "experience": "ML Engineer @ DeepLabs", "content": "Built an end-to-end NLP training pipeline with data validation, feature stores, and automated retraining" },
+    { "key": "ml-rag", "experience": "ML Engineer @ DeepLabs", "content": "Designed a retrieval-augmented generation system using sentence-transformer embeddings and a vector database" },
+    { "key": "ml-serving", "experience": "ML Engineer @ DeepLabs", "content": "Deployed models behind a low-latency inference service with ONNX Runtime and dynamic batching" },
+    { "key": "ml-experiment", "experience": "Research Scientist @ DeepLabs", "content": "Ran ablation studies on transformer architectures and published findings at an internal research summit" },
+    { "key": "ml-recsys", "experience": "ML Engineer @ DeepLabs", "content": "Built a recommendation model that lifted click-through rate by 18% via collaborative filtering" },
+
+    { "key": "de-spark", "experience": "Data Engineer @ Initech", "content": "Built Spark ETL jobs transforming 2TB/day of clickstream data into curated analytics tables" },
+    { "key": "de-airflow", "experience": "Data Engineer @ Initech", "content": "Orchestrated 200+ data pipelines with Airflow, adding SLA monitoring and automatic backfills" },
+    { "key": "de-warehouse", "experience": "Data Engineer @ Initech", "content": "Modeled a Snowflake data warehouse with dimensional schemas powering executive dashboards" },
+    { "key": "de-dbt", "experience": "Analytics Engineer @ Initech", "content": "Implemented dbt models and tests to enforce data quality across the analytics layer" },
+    { "key": "de-streaming", "experience": "Data Engineer @ Initech", "content": "Built a near-real-time streaming ingestion layer with Flink reducing data freshness from hours to seconds" },
+
+    { "key": "fe-react", "experience": "Frontend Engineer @ Hooli", "content": "Built a React + TypeScript dashboard with reusable component library used across 6 product teams" },
+    { "key": "fe-perf", "experience": "Frontend Engineer @ Hooli", "content": "Reduced initial bundle size by 45% through code-splitting and lazy loading, improving LCP to 1.2s" },
+    { "key": "fe-a11y", "experience": "Frontend Engineer @ Hooli", "content": "Led an accessibility initiative bringing the app to WCAG 2.1 AA compliance" },
+    { "key": "fe-design-system", "experience": "Frontend Engineer @ Hooli", "content": "Created a design system in Storybook with theming tokens and automated visual regression tests" },
+
+    { "key": "devops-k8s", "experience": "SRE @ Globex", "content": "Migrated services to Kubernetes with Helm charts and horizontal pod autoscaling" },
+    { "key": "devops-ci", "experience": "SRE @ Globex", "content": "Built CI/CD pipelines in GitHub Actions cutting deploy time from 40 minutes to 6" },
+    { "key": "devops-terraform", "experience": "SRE @ Globex", "content": "Codified AWS infrastructure with Terraform modules enabling reproducible multi-region environments" },
+    { "key": "devops-observability", "experience": "SRE @ Globex", "content": "Instrumented services with Prometheus and Grafana, reducing mean time to detection by 50%" },
+
+    { "key": "pm-roadmap", "experience": "Product Manager @ Hooli", "content": "Owned the product roadmap for a B2B SaaS platform, aligning engineering, design, and sales" },
+    { "key": "pm-discovery", "experience": "Product Manager @ Hooli", "content": "Ran customer discovery interviews and translated insights into prioritized feature specs" },
+    { "key": "pm-metrics", "experience": "Product Manager @ Hooli", "content": "Defined activation and retention metrics and ran A/B tests that grew onboarding completion by 25%" },
+    { "key": "pm-gtm", "experience": "Product Manager @ Hooli", "content": "Led go-to-market for a new analytics module, coordinating a cross-functional launch" },
+
+    { "key": "misc-mentor", "experience": "Senior Engineer @ Acme", "content": "Mentored 4 junior engineers and established a code review and onboarding handbook" },
+    { "key": "misc-oncall", "experience": "Senior Engineer @ Acme", "content": "Reduced on-call pages by 35% by fixing flaky alerts and adding runbooks" },
+    { "key": "misc-volunteer", "experience": "Volunteer", "content": "Organized a community coding workshop teaching Python basics to 30 high-school students" }
+  ],
+  "queries": [
+    {
+      "id": "backend-engineer",
+      "job_description": "We are hiring a Backend Engineer to build high-throughput, low-latency APIs in Rust or Go. You will design microservices, optimize databases, and add caching layers. Experience with PostgreSQL, Redis, and authentication systems is required.",
+      "relevant_keys": ["be-rest-api", "be-grpc", "be-postgres", "be-caching", "be-auth", "be-queue"]
+    },
+    {
+      "id": "ml-engineer-nlp",
+      "job_description": "Seeking an ML Engineer to build NLP pipelines. You'll fine-tune transformer models like BERT, build training and retraining pipelines, and deploy low-latency inference services. Familiarity with embeddings, RAG, and vector databases is a plus.",
+      "relevant_keys": ["ml-bert", "ml-pipeline", "ml-rag", "ml-serving", "ml-experiment"]
+    },
+    {
+      "id": "data-engineer",
+      "job_description": "Data Engineer wanted to build large-scale ETL pipelines. You'll work with Spark, Airflow, and data warehouses like Snowflake, and ensure data quality across the analytics layer. Streaming experience with Flink or Kafka is valued.",
+      "relevant_keys": ["de-spark", "de-airflow", "de-warehouse", "de-dbt", "de-streaming", "be-queue"]
+    },
+    {
+      "id": "frontend-engineer",
+      "job_description": "Frontend Engineer to build performant, accessible React + TypeScript web applications. You'll own a component library and design system, optimize bundle size and Core Web Vitals, and champion accessibility.",
+      "relevant_keys": ["fe-react", "fe-perf", "fe-a11y", "fe-design-system"]
+    },
+    {
+      "id": "sre-devops",
+      "job_description": "Site Reliability Engineer to run our cloud infrastructure. Responsibilities include Kubernetes, Terraform, CI/CD automation, and observability with Prometheus and Grafana. You'll improve deployment speed and incident response.",
+      "relevant_keys": ["devops-k8s", "devops-ci", "devops-terraform", "devops-observability", "misc-oncall"]
+    },
+    {
+      "id": "product-manager",
+      "job_description": "Product Manager for a B2B SaaS platform. You'll own the roadmap, run customer discovery, define success metrics, run A/B tests, and lead go-to-market launches across engineering, design, and sales.",
+      "relevant_keys": ["pm-roadmap", "pm-discovery", "pm-metrics", "pm-gtm"]
+    },
+    {
+      "id": "off-topic-chef",
+      "job_description": "Hiring a Head Chef for a fine-dining restaurant. Must have experience designing seasonal menus, managing kitchen staff, sourcing local ingredients, and maintaining food safety standards.",
+      "relevant_keys": []
+    }
+  ]
+}

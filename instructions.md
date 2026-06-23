@@ -9,7 +9,7 @@ Ensure you have the following installed on your system:
 - **Tauri Prerequisites**: 
   - Microsoft Visual Studio C++ Build Tools
   - Webview2 (Usually pre-installed on Windows 11)
-- **CMake & LLVM**: Necessary for compiling `llama-cpp-2` locally (for the SLM). Make sure your `LIBCLANG_PATH` environment variable is set.
+- **Ollama** (for the local LLM mode): install [Ollama](https://ollama.com) and pull the model — `ollama pull qwen3.5:9b`. Local generation calls the Ollama server over HTTP (default `http://localhost:11434`); no native model bindings are compiled. The cloud (Gemini) mode does not need Ollama.
 
 ## 2. Installation
 Clone the repository and install the Node frontend dependencies:
@@ -23,7 +23,7 @@ To launch the application in development mode with Hot-Module Replacement (HMR) 
 ```bash
 npm run tauri dev
 ```
-*Note: Due to Rust dependencies (especially `llama.cpp` bindings and `tectonic`), the initial build may take several minutes. Subsequent builds will be much faster.*
+*Note: Due to Rust dependencies (especially `tectonic`), the initial build may take several minutes. Subsequent builds will be much faster.*
 
 ## 4. Testing
 The application uses automated tests primarily on the Rust backend. To run the test suite:

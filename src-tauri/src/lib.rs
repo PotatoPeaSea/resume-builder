@@ -1,7 +1,7 @@
-mod db;
-mod latex;
-mod llm;
-mod rag;
+pub mod db;
+pub mod latex;
+pub mod llm;
+pub mod rag;
 use db::DbState;
 use llm::LlmState;
 use rag::EmbeddingState;
